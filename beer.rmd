@@ -1,0 +1,79 @@
+---
+title: "beer"
+author: "Andrew Norman"
+date: "22 January 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(lubridate)
+source("beermap.r")
+
+beers <- read.csv("checkin-report_01_08_17.csv", header=FALSE, col.names = c("name", "brewery", "type", "abv", "ibu", "comment", "venuename", "venuecity", "venuestate", "venuecountry", "lat", "long", "score", "created", "url1", "url2", "url3", "brewerycountry", "brewerycity", "brewerystate"))
+beers$datetime <- as.POSIXct(beers$created, "%y-%m-%d %H:%M:%S")
+beers$hour <- lubridate::hour(beers$datetime)
+beers$summary.type <- map.beer.types(beers)
+```
+International Bitterness Units versus Rating
+```{r ibu}
+#IBUs Vs Rating
+plot(beers[beers$ibu > 0, ]$ibu, beers[beers$ibu > 0, ]$score)
+abline(lm(beers[beers$ibu > 0, ]$score~beers[beers$ibu > 0, ]$ibu))
+```
+Summary
+```{r summary ibu}
+summary(lm(beers[beers$ibu > 0, ]$score~beers[beers$ibu > 0, ]$ibu))
+```
+Alcohol By Volume versus Rating
+```{r abv}
+# ABV Vs Rating
+plot(beers[beers$abv > 0, ]$abv, beers[beers$abv > 0, ]$score)
+abline(lm(beers[beers$abv > 0, ]$score~beers[beers$abv > 0, ]$ibu))
+summary(lm(beers[beers$abv > 0, ]$score~beers[beers$abv > 0, ]$ibu))
+```
+Average rating of beers
+```{r mean}
+#average ratings of different types of beer
+complist <- beers[complete.cases(beers$score),]
+agglist <- aggregate(complist$score, by=list(complist$type), FUN=mean)
+types.order <- order(as.numeric(agglist$x),decreasing = TRUE)
+types <- agglist[types.order,]$x
+names(types) <- agglist[types.order,]$Group.1
+barplot(types, horiz=TRUE)
+```
+Those beers with their types summarised
+```{r summary mean}
+complist <- beers[complete.cases(beers$score),]
+summary.agglist <- aggregate(complist$score, by=list(complist$summary.type), FUN=mean)
+types.order <- order(as.numeric(summary.agglist$x),decreasing = TRUE))
+types <- summary.agglist[types.order,]$x
+names(types) <- summary.agglist[types.order,]$Group.1
+par(mai=c(1,2,1,1))
+barplot(types, horiz=TRUE,las=1)
+```
+Histograms of Checkins
+```{r histogram}
+# histogram of checkins
+hist(beers$score, breaks = seq(-0.25,5.25,by=0.5))
+```
+```{r histogrampostquarter}
+# histogram after quarter points
+hist(beers[beers$datetime > as.POSIXct("2015-07-09"), ]$score, breaks = seq(0.125,5.125,by=0.25))
+```
+Moving Averages
+```{r moving average}
+ma <- function(x,n=5){filter(x,rep(1/n,n), sides=2)}
+# moving average rating
+plot(ma(beers$score, 10))
+# checking in time / rate of checking.
+```
+Time of the day
+```{r time}
+# time of day
+hist(beers$hour, breaks = 24)
+agglist_hour <- aggregate(beers[complete.cases(beers$score),]$score, by=list(beers[complete.cases(beers$score),]$hour), FUN=mean)
+plot(agglist_hour[order(agglist_hour$x),]$Group.1, agglist_hour[order(agglist_hour$x),]$x)
+# hist(beers$time, breaks = seq(as.POSIXct("00:00:00", format="%H:%M:%S"), as.POSIXct("24:00:00", format="%H:%M:%S"),by="hour"))
+```
+
